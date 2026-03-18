@@ -27,20 +27,18 @@ app.get("/", (req, res) => {
 // 🔐 login API
 app.post("/api/login", async (req, res) => {
     const { username, password } = req.body;
-
     console.log("Login attempt:", username);
 
     try {
         console.time("supabase");
 
-        // ⏱️ ใส่ timeout กันค้าง
         const timeout = new Promise((_, reject) =>
             setTimeout(() => reject(new Error("Timeout")), 5000)
         );
 
         const query = supabase
             .from("users")
-            .select("id, username, password") // ⚡ เอาเฉพาะที่จำเป็น
+            .select("id, username, password")
             .eq("username", username)
             .maybeSingle();
 
@@ -48,52 +46,41 @@ app.post("/api/login", async (req, res) => {
 
         console.timeEnd("supabase");
 
-        if (error) {
-            console.log("DB error:", error);
-            return res.status(500).json({ message: "DB error" });
-        }
-
-        if (!data) {
-            console.log("User not found");
-            return res.status(401).json({ message: "User not found" });
-        }
-
-        if (data.password !== password) {
-            console.log("Wrong password");
-            return res.status(401).json({ message: "Wrong password" });
-        }
+        if (error) return res.status(500).json({ message: "DB error" });
+        if (!data) return res.status(401).json({ message: "User not found" });
+        if (data.password !== password) return res.status(401).json({ message: "Wrong password" });
 
         console.log("Login success:", username);
-
-        res.json({
-            message: "Login success",
-            user: data,
-        });
-
+        res.json({ message: "Login success", user: data });
     } catch (err) {
         console.log("❌ ERROR:", err.message);
-        return res.status(500).json({ message: "Server timeout or error" });
+        res.status(500).json({ message: "Server timeout or error" });
     }
 });
 
-// 📊 get transactions
+// GET transactions
 app.get("/api/transactions", async (req, res) => {
-    const { data, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .order("date", { ascending: false });
+    try {
+        const { data, error } = await supabase
+            .from("transactions")
+            .select("*")
+            .order("createdat", { ascending: false }); // ใช้ lowercase ตามจริง
 
-    if (error) {
-        console.log(error);
-        return res.status(500).json({ message: "DB error" });
+        if (error) {
+            console.log("DB fetch error:", error);
+            return res.status(500).json({ message: "DB error" });
+        }
+
+        res.json(data);
+    } catch (err) {
+        console.log("Server error:", err);
+        res.status(500).json({ message: "Server error" });
     }
-
-    res.json(data);
 });
 
 // ➕ create transaction
 app.post("/api/transactions", async (req, res) => {
-    const { type, amount, category, name, date } = req.body;
+    const { type, amount, category, name } = req.body;
 
     if (!type || !amount || !category || !name) {
         return res.status(400).json({ message: "Missing required fields" });
@@ -102,7 +89,7 @@ app.post("/api/transactions", async (req, res) => {
     try {
         const { data, error } = await supabase
             .from("transactions")
-            .insert([{ type, amount, category, name, date: date || new Date() }])
+            .insert([{ type, amount, category, name }])
             .select()
             .single(); // คืนค่า transaction ที่สร้าง
 
