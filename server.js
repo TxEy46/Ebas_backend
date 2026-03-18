@@ -1,0 +1,97 @@
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const { createClient } = require("@supabase/supabase-js");
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// 🔥 log ทุก request
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+});
+
+// 🔑 connect supabase
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_KEY
+);
+
+// ✅ route เช็คว่า server รัน
+app.get("/", (req, res) => {
+    res.send("Server is running ✅");
+});
+
+// 🔐 login API
+app.post("/api/login", async (req, res) => {
+    const { username, password } = req.body;
+
+    console.log("Login attempt:", username);
+
+    try {
+        console.time("supabase");
+
+        // ⏱️ ใส่ timeout กันค้าง
+        const timeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout")), 5000)
+        );
+
+        const query = supabase
+            .from("users")
+            .select("id, username, password") // ⚡ เอาเฉพาะที่จำเป็น
+            .eq("username", username)
+            .maybeSingle();
+
+        const { data, error } = await Promise.race([query, timeout]);
+
+        console.timeEnd("supabase");
+
+        if (error) {
+            console.log("DB error:", error);
+            return res.status(500).json({ message: "DB error" });
+        }
+
+        if (!data) {
+            console.log("User not found");
+            return res.status(401).json({ message: "User not found" });
+        }
+
+        if (data.password !== password) {
+            console.log("Wrong password");
+            return res.status(401).json({ message: "Wrong password" });
+        }
+
+        console.log("Login success:", username);
+
+        res.json({
+            message: "Login success",
+            user: data,
+        });
+
+    } catch (err) {
+        console.log("❌ ERROR:", err.message);
+        return res.status(500).json({ message: "Server timeout or error" });
+    }
+});
+
+// 📊 get transactions
+app.get("/api/transactions", async (req, res) => {
+    const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .order("date", { ascending: false });
+
+    if (error) {
+        console.log(error);
+        return res.status(500).json({ message: "DB error" });
+    }
+
+    res.json(data);
+});
+
+// 🚀 start server
+app.listen(process.env.PORT || 3001, () => {
+    console.log(`Server running on http://localhost:${process.env.PORT || 3001}`);
+});
