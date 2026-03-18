@@ -58,7 +58,7 @@ app.post("/api/login", async (req, res) => {
     }
 });
 
-// GET transactions
+// 📋 GET transactions
 app.get("/api/transactions", async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -78,7 +78,7 @@ app.get("/api/transactions", async (req, res) => {
     }
 });
 
-// ➕ create transaction
+// ➕ POST (Create) transaction
 app.post("/api/transactions", async (req, res) => {
     const { type, amount, category, name } = req.body;
 
@@ -106,6 +106,55 @@ app.post("/api/transactions", async (req, res) => {
         }
 
         res.status(201).json({ message: "Transaction created", transaction: data });
+    } catch (err) {
+        console.log("Server error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+// ✏️ PUT (Update) transaction
+// ✏️ PUT (Update) transaction
+app.put("/api/transactions/:id", async (req, res) => {
+    const { id } = req.params;
+    const { type, amount, category, name } = req.body;
+
+    try {
+        const { data, error } = await supabase
+            .from("transactions")
+            .update({ type, amount, category, name })
+            .eq("id", id) // 👈 แก้ตรงนี้: ลบ underscore (_) ออก
+            .select()
+            .single();
+
+        if (error) {
+            console.log("DB update error:", error);
+            return res.status(500).json({ message: "DB update error" });
+        }
+
+        res.json({ message: "Transaction updated successfully", transaction: data });
+    } catch (err) {
+        console.log("Server error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+// 🗑️ DELETE transaction
+// 🗑️ DELETE transaction
+app.delete("/api/transactions/:id", async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const { error } = await supabase
+            .from("transactions")
+            .delete()
+            .eq("id", id); // 👈 แก้ตรงนี้: ลบ underscore (_) ออก
+
+        if (error) {
+            console.log("DB delete error:", error);
+            return res.status(500).json({ message: "DB delete error" });
+        }
+
+        res.json({ message: "Transaction deleted successfully" });
     } catch (err) {
         console.log("Server error:", err);
         res.status(500).json({ message: "Server error" });
