@@ -91,6 +91,33 @@ app.get("/api/transactions", async (req, res) => {
     res.json(data);
 });
 
+// ➕ create transaction
+app.post("/api/transactions", async (req, res) => {
+    const { type, amount, category, name, date } = req.body;
+
+    if (!type || !amount || !category || !name) {
+        return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from("transactions")
+            .insert([{ type, amount, category, name, date: date || new Date() }])
+            .select()
+            .single(); // คืนค่า transaction ที่สร้าง
+
+        if (error) {
+            console.log("DB insert error:", error);
+            return res.status(500).json({ message: "DB insert error" });
+        }
+
+        res.status(201).json({ message: "Transaction created", transaction: data });
+    } catch (err) {
+        console.log("Server error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 // 🚀 start server
 app.listen(process.env.PORT || 3001, () => {
     console.log(`Server running on http://localhost:${process.env.PORT || 3001}`);
