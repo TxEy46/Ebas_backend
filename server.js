@@ -64,7 +64,7 @@ app.get("/api/transactions", async (req, res) => {
         const { data, error } = await supabase
             .from("transactions")
             .select("*")
-            .order("createdat", { ascending: false }); // ใช้ lowercase ตามจริง
+            .order("createdate", { ascending: false }); // 🔹 แก้ชื่อคอลัมน์เป็น createdate
 
         if (error) {
             console.log("DB fetch error:", error);
@@ -87,11 +87,18 @@ app.post("/api/transactions", async (req, res) => {
     }
 
     try {
+        // เพิ่ม createdate เป็นเวลาปัจจุบัน
         const { data, error } = await supabase
             .from("transactions")
-            .insert([{ type, amount, category, name }])
+            .insert([{
+                type,
+                amount,
+                category,
+                name,
+                createdate: new Date().toISOString() // 🔹 เพิ่มค่านี้
+            }])
             .select()
-            .single(); // คืนค่า transaction ที่สร้าง
+            .single();
 
         if (error) {
             console.log("DB insert error:", error);
