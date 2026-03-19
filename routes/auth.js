@@ -1,36 +1,63 @@
 const express = require("express");
 const router = express.Router();
-const supabase = require("../config/supabase"); // 🔹 ดึง database มาใช้
+const supabase = require("../config/supabase");
+const bcrypt = require("bcryptjs"); // 🔹 สำหรับ Hash รหัส
+const jwt = require("jsonwebtoken"); // 🔹 สำหรับสร้าง Token
 
-// 🔐 login API (จะเป็น /api/login เมื่อไปประกอบในไฟล์หลัก)
-router.post("/login", async (req, res) => {
+const JWT_SECRET = process.env.JWT_SECRET || "your_super_secret_key";
+
+// 📝 1. Register API (แบบ Hash Password)
+router.post("/register", async (req, res) => {
     const { username, password } = req.body;
-    console.log("Login attempt:", username);
 
     try {
-        console.time("supabase");
-        const timeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Timeout")), 5000)
-        );
+        // Hash รหัสผ่านก่อนเก็บ (10 คือความละเอียดในการสุ่ม)
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        const query = supabase
+        const { data, error } = await supabase
             .from("users")
-            .select("id, username, password")
+            .insert([{ username, password: hashedPassword }])
+            .select().single();
+
+        if (error) return res.status(400).json({ message: "Username นี้ถูกใช้ไปแล้ว" });
+
+        res.status(201).json({ message: "สมัครสมาชิกสำเร็จ" });
+    } catch (err) {
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+// 🔐 2. Login API (แบบเช็ค Hash และสร้าง JWT)
+router.post("/login", async (req, res) => {
+    const { username, password } = req.body;
+
+    try {
+        const { data: user, error } = await supabase
+            .from("users")
+            .select("*")
             .eq("username", username)
             .maybeSingle();
 
-        const { data, error } = await Promise.race([query, timeout]);
-        console.timeEnd("supabase");
+        if (!user) return res.status(401).json({ message: "ไม่พบผู้ใช้งาน" });
 
-        if (error) return res.status(500).json({ message: "DB error" });
-        if (!data) return res.status(401).json({ message: "User not found" });
-        if (data.password !== password) return res.status(401).json({ message: "Wrong password" });
+        // ตรวจสอบรหัสผ่านที่ส่งมา กับ Hash ใน DB
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(401).json({ message: "รหัสผ่านไม่ถูกต้อง" });
 
-        console.log("Login success:", username);
-        res.json({ message: "Login success", user: data });
+        // สร้าง JWT Token (เก็บ id และ username ไว้ข้างใน)
+        const token = jwt.sign(
+            { id: user.id, username: user.username },
+            JWT_SECRET,
+            { expiresIn: "1d" } // Token หมดอายุใน 1 วัน
+        );
+
+        res.json({
+            message: "Login success",
+            token, // 🔹 ส่ง Token กลับไปให้ Frontend
+            user: { id: user.id, username: user.username }
+        });
     } catch (err) {
-        console.log("❌ ERROR:", err.message);
-        res.status(500).json({ message: "Server timeout or error" });
+        res.status(500).json({ message: "Server error" });
     }
 });
 

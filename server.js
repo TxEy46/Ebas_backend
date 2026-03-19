@@ -6,6 +6,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/auth");
 const transactionRoutes = require("./routes/transactions");
 const budgetRoutes = require("./routes/budgets");
+const categoryRoutes = require("./routes/categories");
 
 const app = express();
 app.use(cors());
@@ -26,6 +27,7 @@ app.get("/", (req, res) => {
 app.use("/api", authRoutes); // จะกลายเป็น /api/login
 app.use("/api/transactions", transactionRoutes); // จะกลายเป็น /api/transactions/...
 app.use("/api/budgets", budgetRoutes); // จะกลายเป็น /api/budgets/...
+app.use("/api/categories", categoryRoutes); // จะกลายเป็น /api/categories/...
 
 // 🚀 start server
 const PORT = process.env.PORT || 3001;
